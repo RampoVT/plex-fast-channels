@@ -4,10 +4,7 @@ on:
   schedule:
     # Every 6 hours – refreshes tokens + EPG; channels.json reused unless stale
     - cron: "0 */6 * * *"
-
-  # Weekly channel list refresh – forces re-fetch of channels.json
-  # (runs every Monday at 03:00 UTC)
-  schedule:
+    # Weekly channel list refresh – every Monday at 03:00 UTC
     - cron: "0 3 * * 1"
 
   workflow_dispatch:
@@ -96,7 +93,6 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage both the playlists folder AND channels.json (if it changed)
           git add playlists/ channels.json 2>/dev/null || git add playlists/
 
           if git diff --cached --quiet; then
