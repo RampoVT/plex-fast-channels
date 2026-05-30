@@ -1,0 +1,108 @@
+name: Generate Plex Playlists
+
+on:
+  # Run automatically every 6 hours
+  schedule:
+    - cron: "0 */6 * * *"
+
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: "Space-separated region codes to generate (leave blank for all)"
+        required: false
+        default: ""
+      no_epg:
+        description: "Skip EPG generation? (true / false)"
+        required: false
+        default: "false"
+      days:
+        description: "Days of EPG to fetch"
+        required: false
+        default: "2"
+
+  # Also regenerate when the script itself changes
+  push:
+    paths:
+      - "generate.py"
+      - ".github/workflows/generate.yml"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: write   # needed to push the generated playlists back
+
+    steps:
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # -----------------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: pip install requests urllib3
+
+      # -----------------------------------------------------------------------
+      - name: Build region / flag arguments
+        id: args
+        run: |
+          REGIONS="${{ github.event.inputs.regions }}"
+          NO_EPG="${{ github.event.inputs.no_epg }}"
+          DAYS="${{ github.event.inputs.days }}"
+
+          CMD="python generate.py"
+
+          if [ -n "$REGIONS" ]; then
+            CMD="$CMD --regions $REGIONS"
+          fi
+
+          if [ "$NO_EPG" = "true" ]; then
+            CMD="$CMD --no-epg"
+          fi
+
+          if [ -n "$DAYS" ] && [ "$DAYS" != "2" ]; then
+            CMD="$CMD --days $DAYS"
+          fi
+
+          echo "cmd=$CMD" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      - name: Generate playlists & EPG
+        run: ${{ steps.args.outputs.cmd }}
+
+      # -----------------------------------------------------------------------
+      - name: Commit & push generated files
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add playlists/
+
+          # Only commit if something actually changed
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
+            git commit -m "chore: regenerate playlists @ ${TIMESTAMP} [skip ci]"
+            git push
+          fi
+
+      # -----------------------------------------------------------------------
+      - name: Upload playlists as artifact (always, for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playlists-${{ github.run_number }}
+          path: playlists/
+          retention-days: 3
