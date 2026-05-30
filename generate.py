@@ -3,35 +3,41 @@
 Plex Free Live TV – M3U + XMLTV generator
 Repo: https://github.com/BuddyChewChew/plex-alt-fast-channels
 
-Fetches channel lists and EPG data directly from the Plex API with no
-dependency on third-party aggregators (matthuisman, etc.).
+Flow:
+  1. Load channels from channels.json cache (if fresh enough).
+  2. If cache is missing or stale, discover channels via Plex API and
+     write a new channels.json.
+  3. Fetch a fresh anonymous token (short-lived, always fetched at runtime).
+  4. Build per-region M3U (with url-tvg= EPG header) and XMLTV files.
 
-Per-region files are written to ./playlists/:
-  plex_{region}.m3u          – M3U playlist
-  plex_{region}.xml          – XMLTV / EPG (today + tomorrow)
-  plex_all.m3u               – Combined playlist (all regions)
-  plex_all.xml               – Combined XMLTV
+Per-region files written to ./playlists/:
+  plex_{region}.m3u   – M3U playlist (url-tvg= points to matching .xml)
+  plex_{region}.xml   – XMLTV / EPG (today + tomorrow)
+  plex_all.m3u        – Combined playlist
+  plex_all.xml        – Combined XMLTV
+
+channels.json is written to the repo root (committed by the workflow) so
+subsequent runs never need to re-hit the channel-discovery endpoints.
 
 Usage:
-  python generate.py                    # all configured regions
-  python generate.py --regions us ca    # specific regions only
-  python generate.py --no-epg           # skip EPG generation
+  python generate.py                         # all regions, use cache
+  python generate.py --regions us ca gb      # specific regions
+  python generate.py --refresh-channels      # force re-fetch channels
+  python generate.py --no-epg               # skip EPG
+  python generate.py --days 3               # 3 days of EPG
 """
 
 import argparse
-import gzip
 import json
 import logging
 import os
 import random
 import re
 import shutil
-import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from io import BytesIO
 from xml.sax.saxutils import escape
 
 import requests
@@ -42,29 +48,34 @@ from urllib3.util.retry import Retry
 # Configuration
 # ---------------------------------------------------------------------------
 
-OUTPUT_DIR = "playlists"
-MAX_WORKERS = 6          # parallel EPG fetch threads
-EPG_DAYS = 2             # how many days of EPG to fetch (today + N-1)
-REQUEST_TIMEOUT = 30
+OUTPUT_DIR          = "playlists"
+CHANNELS_CACHE_FILE = "channels.json"   # committed to repo root
+CACHE_MAX_AGE_HOURS = 24                # refresh channel list after this many hours
+MAX_WORKERS         = 6                 # parallel EPG fetch threads
+EPG_DAYS            = 2                 # days of EPG to fetch (today + N-1)
+REQUEST_TIMEOUT     = 30
 
-# Geographic spoofing IPs – one representative IP per region so Plex
-# returns the correct channel lineup.  Rotate / update as needed.
+REPO_RAW_BASE = (
+    "https://raw.githubusercontent.com/BuddyChewChew/plex-alt-fast-channels/main"
+)
+
+# Geographic spoofing IPs – update if a region stops returning channels
 GEO_IPS = {
-    "us":  "76.81.9.69",        # Los Angeles, CA
-    "ca":  "192.206.151.131",   # Toronto, ON
-    "gb":  "193.62.157.66",     # London
-    "au":  "110.33.122.75",     # Sydney
-    "nz":  "203.86.207.83",     # Auckland
-    "mx":  "200.68.128.83",     # Mexico City
-    "es":  "88.26.241.248",     # Madrid
-    "fr":  "176.31.84.249",     # Paris
-    "de":  "217.0.117.58",      # Frankfurt
-    "br":  "177.75.44.30",      # São Paulo
-    "in":  "49.36.80.10",       # Mumbai
-    "jp":  "126.82.100.100",    # Tokyo
-    "kr":  "175.209.10.10",     # Seoul
-    "se":  "94.254.2.100",      # Stockholm
-    "nl":  "77.249.128.10",     # Amsterdam
+    "us":  "76.81.9.69",
+    "ca":  "192.206.151.131",
+    "gb":  "193.62.157.66",
+    "au":  "110.33.122.75",
+    "nz":  "203.86.207.83",
+    "mx":  "200.68.128.83",
+    "es":  "88.26.241.248",
+    "fr":  "176.31.84.249",
+    "de":  "217.0.117.58",
+    "br":  "177.75.44.30",
+    "in":  "49.36.80.10",
+    "jp":  "126.82.100.100",
+    "kr":  "175.209.10.10",
+    "se":  "94.254.2.100",
+    "nl":  "77.249.128.10",
 }
 
 REGION_NAMES = {
@@ -85,36 +96,37 @@ REGION_NAMES = {
     "nl":  "Netherlands",
 }
 
-# Base Plex Web headers – mimic a real browser session
 BASE_HEADERS = {
-    "Accept":                   "application/json, text/plain, */*",
-    "Accept-Language":          "en",
-    "Connection":               "keep-alive",
-    "Origin":                   "https://app.plex.tv",
-    "Referer":                  "https://app.plex.tv/",
-    "Sec-Fetch-Dest":           "empty",
-    "Sec-Fetch-Mode":           "cors",
-    "Sec-Fetch-Site":           "same-site",
-    "User-Agent":               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/132.0.0.0 Safari/537.36",
-    "sec-ch-ua":                '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
-    "sec-ch-ua-mobile":         "?0",
-    "sec-ch-ua-platform":       '"Windows"',
+    "Accept":              "application/json, text/plain, */*",
+    "Accept-Language":     "en",
+    "Connection":          "keep-alive",
+    "Origin":              "https://app.plex.tv",
+    "Referer":             "https://app.plex.tv/",
+    "Sec-Fetch-Dest":      "empty",
+    "Sec-Fetch-Mode":      "cors",
+    "Sec-Fetch-Site":      "same-site",
+    "User-Agent":          (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/132.0.0.0 Safari/537.36"
+    ),
+    "sec-ch-ua":           '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
+    "sec-ch-ua-mobile":    "?0",
+    "sec-ch-ua-platform":  '"Windows"',
 }
 
 BASE_PARAMS = {
-    "X-Plex-Product":               "Plex Web",
-    "X-Plex-Version":               "4.145.1",
-    "X-Plex-Platform":              "Chrome",
-    "X-Plex-Platform-Version":      "132.0",
-    "X-Plex-Features":              "external-media,indirect-media,hub-style-list",
-    "X-Plex-Model":                 "standalone",
-    "X-Plex-Device":                "Windows",
+    "X-Plex-Product":                  "Plex Web",
+    "X-Plex-Version":                  "4.145.1",
+    "X-Plex-Platform":                 "Chrome",
+    "X-Plex-Platform-Version":         "132.0",
+    "X-Plex-Features":                 "external-media,indirect-media,hub-style-list",
+    "X-Plex-Model":                    "standalone",
+    "X-Plex-Device":                   "Windows",
     "X-Plex-Device-Screen-Resolution": "1920x1080",
-    "X-Plex-Provider-Version":      "7.2",
-    "X-Plex-Text-Format":           "plain",
-    "X-Plex-Language":              "en",
+    "X-Plex-Provider-Version":         "7.2",
+    "X-Plex-Text-Format":              "plain",
+    "X-Plex-Language":                 "en",
 }
 
 # ---------------------------------------------------------------------------
@@ -150,6 +162,11 @@ def _new_client_id() -> str:
     return str(uuid.uuid4()).replace("-", "")
 
 
+def _sanitize(text: str) -> str:
+    """Strip XML-illegal control characters."""
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text or "")
+
+
 def cleanup_output_dir():
     if os.path.exists(OUTPUT_DIR):
         logger.info("Cleaning %s …", OUTPUT_DIR)
@@ -166,34 +183,76 @@ def cleanup_output_dir():
         os.makedirs(OUTPUT_DIR)
 
 
-def write_file(filename: str, content: str):
+def write_playlist(filename: str, content: str):
+    """Write a file inside OUTPUT_DIR."""
     filepath = os.path.join(OUTPUT_DIR, filename)
     with open(filepath, "w", encoding="utf-8") as fh:
         fh.write(content)
-    logger.info("Wrote %s (%d bytes)", filename, len(content))
-
-
-def _sanitize(text: str) -> str:
-    """Strip XML-illegal control characters."""
-    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text or "")
+    logger.info("Wrote playlists/%s  (%d bytes)", filename, len(content))
 
 
 # ---------------------------------------------------------------------------
-# Plex token
+# channels.json cache
+# ---------------------------------------------------------------------------
+
+def _cache_is_fresh() -> bool:
+    """Return True if channels.json exists and is younger than CACHE_MAX_AGE_HOURS."""
+    if not os.path.exists(CHANNELS_CACHE_FILE):
+        return False
+    age_seconds = time.time() - os.path.getmtime(CHANNELS_CACHE_FILE)
+    return age_seconds < CACHE_MAX_AGE_HOURS * 3600
+
+
+def load_channels_cache() -> dict | None:
+    """
+    Load channels.json from disk.
+    Schema: { region: { gridKey: { id, slug, gridKey, name, logo, key, genres } } }
+    Returns None if file is missing or unreadable.
+    """
+    if not os.path.exists(CHANNELS_CACHE_FILE):
+        return None
+    try:
+        with open(CHANNELS_CACHE_FILE, encoding="utf-8") as fh:
+            data = json.load(fh)
+        total = sum(len(v) for v in data.get("channels", {}).values())
+        logger.info(
+            "Loaded channels.json – %d regions, %d total channels (age: %.1fh)",
+            len(data.get("channels", {})),
+            total,
+            (time.time() - os.path.getmtime(CHANNELS_CACHE_FILE)) / 3600,
+        )
+        return data.get("channels", {})
+    except Exception as exc:
+        logger.warning("Could not read channels.json: %s", exc)
+        return None
+
+
+def save_channels_cache(channels_by_region: dict):
+    """
+    Write channels.json to the repo root.
+    Schema: { "generated": "<ISO timestamp>", "channels": { region: {...} } }
+    """
+    payload = {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "channels":  channels_by_region,
+    }
+    with open(CHANNELS_CACHE_FILE, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, ensure_ascii=False)
+    logger.info(
+        "Saved channels.json – %d regions",
+        len(channels_by_region),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plex token  (always fetched fresh – expires in ~6 h)
 # ---------------------------------------------------------------------------
 
 def get_anonymous_token(region: str = "us") -> tuple[str | None, str | None]:
-    """
-    Obtain an anonymous Plex auth token.
-    Returns (token, client_id) or (None, None) on failure.
-    """
+    """Returns (authToken, client_id) or (None, None)."""
     client_id = _new_client_id()
-    headers = {**BASE_HEADERS}
-    params  = {**BASE_PARAMS, "X-Plex-Client-Identifier": client_id}
-
-    ip = GEO_IPS.get(region, GEO_IPS["us"])
-    if ip:
-        headers["X-Forwarded-For"] = ip
+    headers   = {**BASE_HEADERS, "X-Forwarded-For": GEO_IPS.get(region, GEO_IPS["us"])}
+    params    = {**BASE_PARAMS, "X-Plex-Client-Identifier": client_id}
 
     session = _make_session()
     for attempt in range(4):
@@ -210,58 +269,43 @@ def get_anonymous_token(region: str = "us") -> tuple[str | None, str | None]:
                 time.sleep(wait)
                 continue
             if resp.status_code not in (200, 201):
-                logger.warning("Token HTTP %d for %s: %s", resp.status_code, region, resp.text[:120])
+                logger.warning("Token HTTP %d (%s): %s", resp.status_code, region, resp.text[:120])
                 time.sleep(5)
                 continue
             token = resp.json().get("authToken")
             if token:
-                logger.info("Got anonymous token for region=%s", region)
+                logger.info("Token OK for region=%s", region)
                 return token, client_id
         except Exception as exc:
             logger.warning("Token attempt %d failed (%s): %s", attempt + 1, region, exc)
             time.sleep(5)
     session.close()
-    logger.error("Failed to get token for region=%s", region)
+    logger.error("Could not get token for region=%s", region)
     return None, None
 
 
 # ---------------------------------------------------------------------------
-# Channel discovery
+# Channel discovery  (only runs when cache is stale / missing)
 # ---------------------------------------------------------------------------
 
 def _fetch_genres(token: str, client_id: str, ip: str) -> dict[str, str]:
-    """
-    GET https://epg.provider.plex.tv/
-    Returns {genre_slug: genre_title}.
-    """
-    headers = {
-        **BASE_HEADERS,
-        "X-Forwarded-For": ip,
-    }
-    params = {
-        **BASE_PARAMS,
-        "X-Plex-Token":             token,
-        "X-Plex-Client-Identifier": client_id,
-    }
+    """GET epg.provider.plex.tv/ → {genre_slug: genre_title}"""
+    headers = {**BASE_HEADERS, "X-Forwarded-For": ip}
+    params  = {**BASE_PARAMS, "X-Plex-Token": token, "X-Plex-Client-Identifier": client_id}
     session = _make_session()
     try:
-        resp = session.get(
-            "https://epg.provider.plex.tv/",
-            headers=headers,
-            params=params,
-            timeout=REQUEST_TIMEOUT,
-        )
+        resp = session.get("https://epg.provider.plex.tv/", headers=headers,
+                           params=params, timeout=REQUEST_TIMEOUT)
         if resp.status_code != 200:
             logger.warning("Genre API HTTP %d", resp.status_code)
             return {}
-        data = resp.json()
         genres: dict[str, str] = {}
-        for feature in data.get("MediaProvider", {}).get("Feature", []):
+        for feature in resp.json().get("MediaProvider", {}).get("Feature", []):
             if "GridChannelFilter" in feature:
                 for g in feature["GridChannelFilter"]:
                     genres[g["identifier"]] = g["title"]
                 break
-        logger.info("Discovered %d genre slugs", len(genres))
+        logger.info("  %d genre slugs found", len(genres))
         return genres
     except Exception as exc:
         logger.warning("Genre fetch error: %s", exc)
@@ -271,43 +315,23 @@ def _fetch_genres(token: str, client_id: str, ip: str) -> dict[str, str]:
 
 
 def _fetch_channels_for_genre(
-    genre_slug: str,
-    token: str,
-    client_id: str,
-    ip: str,
+    genre_slug: str, token: str, client_id: str, ip: str
 ) -> list[dict]:
-    """
-    GET https://epg.provider.plex.tv/lineups/plex/channels?genre={slug}
-    Returns list of channel dicts.
-    """
-    url = f"https://epg.provider.plex.tv/lineups/plex/channels?genre={genre_slug}"
-    headers = {
-        **BASE_HEADERS,
-        "X-Forwarded-For": ip,
-    }
-    params = {
-        **BASE_PARAMS,
-        "X-Plex-Token":             token,
-        "X-Plex-Client-Identifier": client_id,
-    }
+    """GET epg.provider.plex.tv/lineups/plex/channels?genre={slug}"""
+    url     = f"https://epg.provider.plex.tv/lineups/plex/channels?genre={genre_slug}"
+    headers = {**BASE_HEADERS, "X-Forwarded-For": ip}
+    params  = {**BASE_PARAMS, "X-Plex-Token": token, "X-Plex-Client-Identifier": client_id}
     session = _make_session()
     try:
         resp = session.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
         if resp.status_code != 200:
-            logger.warning("Channels HTTP %d for genre=%s", resp.status_code, genre_slug)
             return []
-        channels_raw = resp.json().get("MediaContainer", {}).get("Channel", [])
+        raw = resp.json().get("MediaContainer", {}).get("Channel", [])
         results = []
-        for ch in channels_raw:
-            # Skip DRM-protected channels (can't be played without a Plex subscription)
-            if any(media.get("drm") for media in ch.get("Media", [])):
-                continue
-            key_values = [
-                part["key"]
-                for media in ch.get("Media", [])
-                for part in media.get("Part", [])
-            ]
-            plex_key = key_values[0] if key_values else ""
+        for ch in raw:
+            if any(m.get("drm") for m in ch.get("Media", [])):
+                continue   # skip DRM-locked channels
+            keys = [p["key"] for m in ch.get("Media", []) for p in m.get("Part", [])]
             results.append({
                 "id":       ch.get("id", ""),
                 "slug":     ch.get("slug", ""),
@@ -315,45 +339,94 @@ def _fetch_channels_for_genre(
                 "name":     ch.get("title", ""),
                 "logo":     ch.get("thumb", ""),
                 "callSign": ch.get("callSign", ""),
-                "key":      plex_key,
+                "key":      keys[0] if keys else "",
+                "genres":   [],   # filled in by fetch_channels()
             })
         return results
     except Exception as exc:
-        logger.warning("Channel fetch error for genre=%s: %s", genre_slug, exc)
+        logger.warning("Channel fetch error (genre=%s): %s", genre_slug, exc)
         return []
     finally:
         session.close()
 
 
-def fetch_channels(token: str, client_id: str, region: str) -> dict[str, dict]:
+def fetch_channels_from_api(token: str, client_id: str, region: str) -> dict[str, dict]:
     """
-    Discover all channels for *region* by iterating genres.
+    Discover all channels for *region* by iterating over every genre slug.
     Returns {gridKey: channel_dict}.
     """
-    ip = GEO_IPS.get(region, GEO_IPS["us"])
+    ip     = GEO_IPS.get(region, GEO_IPS["us"])
     genres = _fetch_genres(token, client_id, ip)
+
+    # Fallback if genre discovery fails
     if not genres:
-        # Fallback: try the default genre slugs Plex always has
-        genres = {
-            "all":   "All",
-            "news":  "News",
-            "sports":"Sports",
-            "movies":"Movies",
-        }
+        genres = {"all": "All", "news": "News", "sports": "Sports", "movies": "Movies"}
 
     channels: dict[str, dict] = {}
     for slug, title in genres.items():
-        raw = _fetch_channels_for_genre(slug, token, client_id, ip)
-        for ch in raw:
+        for ch in _fetch_channels_for_genre(slug, token, client_id, ip):
             gk = ch["gridKey"]
             if gk not in channels:
                 channels[gk] = {**ch, "genres": [title]}
             else:
-                channels[gk]["genres"].append(title)
-        time.sleep(0.2)  # gentle throttle
+                if title not in channels[gk]["genres"]:
+                    channels[gk]["genres"].append(title)
+        time.sleep(0.2)   # gentle throttle
 
-    logger.info("Region %s – %d unique channels", region, len(channels))
+    logger.info("  Region %s → %d unique channels", region, len(channels))
     return channels
+
+
+def get_channels_for_regions(regions: list[str], force_refresh: bool = False) -> dict[str, dict]:
+    """
+    Return {region: {gridKey: channel_dict}}.
+
+    Uses channels.json cache when fresh; only calls the Plex API when the
+    cache is missing, stale, or --refresh-channels is passed.
+    """
+    # --- try cache first ---
+    if not force_refresh and _cache_is_fresh():
+        cached = load_channels_cache()
+        if cached:
+            # If all requested regions are present, use the cache entirely
+            missing = [r for r in regions if r not in cached]
+            if not missing:
+                logger.info("All regions served from channels.json cache.")
+                return {r: cached[r] for r in regions}
+            logger.info("Cache missing regions: %s – will fetch those.", missing)
+            # Partial cache hit: reuse what we have, fetch only missing
+            channels_by_region = {r: cached[r] for r in regions if r in cached}
+            regions_to_fetch   = missing
+        else:
+            channels_by_region = {}
+            regions_to_fetch   = regions
+    else:
+        if force_refresh:
+            logger.info("--refresh-channels: ignoring cache, fetching all regions.")
+        else:
+            logger.info("channels.json is stale or missing – fetching all regions.")
+        channels_by_region = {}
+        regions_to_fetch   = regions
+
+    # --- fetch missing/stale regions from API ---
+    for region in regions_to_fetch:
+        logger.info("Fetching channel list for region=%s …", region)
+        token, client_id = get_anonymous_token(region)
+        if not token:
+            logger.error("  Skipping %s – could not get token", region)
+            continue
+        chs = fetch_channels_from_api(token, client_id, region)
+        if chs:
+            channels_by_region[region] = chs
+
+    # --- persist updated cache ---
+    if regions_to_fetch and channels_by_region:
+        # Merge with any previously cached regions that weren't in our run
+        existing = load_channels_cache() or {}
+        merged   = {**existing, **channels_by_region}
+        save_channels_cache(merged)
+
+    return channels_by_region
 
 
 # ---------------------------------------------------------------------------
@@ -364,23 +437,25 @@ def build_m3u(
     channels: dict[str, dict],
     token: str,
     region: str,
-    repo_base: str,
+    repo_raw_base: str,
 ) -> str:
-    """Build M3U playlist content for *region*."""
-    region_name = REGION_NAMES.get(region, region.upper())
-    epg_url = f"{repo_base}/playlists/plex_{region}.xml"
+    """
+    Build M3U content for *region*.
+    The #EXTM3U header's url-tvg= points to the matching .xml in the repo.
+    """
+    epg_url = f"{repo_raw_base}/playlists/plex_{region}.xml"
 
-    lines = [f'#EXTM3U url-tvg="{epg_url}"\n']
+    lines = [f'#EXTM3U url-tvg="{epg_url}" x-tvg-url="{epg_url}"\n']
 
     for gk, ch in sorted(channels.items(), key=lambda x: x[1].get("name", "").lower()):
-        name   = _sanitize(ch.get("name", gk))
-        logo   = ch.get("logo", "")
-        genres = ch.get("genres", [])
-        group  = genres[0] if genres else region_name
+        name     = _sanitize(ch.get("name", gk))
+        logo     = ch.get("logo", "")
+        genres   = ch.get("genres", [])
+        group    = genres[0] if genres else REGION_NAMES.get(region, region.upper())
         plex_key = ch.get("key", "")
 
         if not plex_key:
-            continue  # no stream URL → skip
+            continue   # no stream path → skip
 
         stream_url = f"https://epg.provider.plex.tv{plex_key}?X-Plex-Token={token}"
 
@@ -410,8 +485,8 @@ def _fetch_epg_for_channel(
     ip: str,
 ) -> str | None:
     """
-    GET https://epg.provider.plex.tv/grid?channelGridKey={gk}&date={YYYY-MM-DD}
-    Returns raw XML string (with the <?xml...?> header stripped) or None.
+    GET epg.provider.plex.tv/grid?channelGridKey={gk}&date={YYYY-MM-DD}
+    Returns XML fragment (<?xml?> header stripped) or None.
     """
     headers = {
         **BASE_HEADERS,
@@ -422,25 +497,18 @@ def _fetch_epg_for_channel(
         "x-plex-token":             token,
         "x-plex-version":           "4.145.1",
     }
-    params = {
-        "channelGridKey": channel["gridKey"],
-        "date":           date_str,
-    }
+    params  = {"channelGridKey": channel["gridKey"], "date": date_str}
     session = _make_session(retries=3, backoff=2.0)
     try:
         resp = session.get(
             "https://epg.provider.plex.tv/grid",
-            headers=headers,
-            params=params,
-            timeout=REQUEST_TIMEOUT,
+            headers=headers, params=params, timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code != 200:
             return None
-        ct = resp.headers.get("Content-Type", "")
-        if "xml" not in ct:
+        if "xml" not in resp.headers.get("Content-Type", ""):
             return None
-        xml = resp.text
-        xml = re.sub(r'<\?xml[^>]*\?>', "", xml).strip()
+        xml = re.sub(r"<\?xml[^>]*\?>", "", resp.text).strip()
         return _sanitize(xml)
     except Exception:
         return None
@@ -449,41 +517,34 @@ def _fetch_epg_for_channel(
 
 
 def build_epg(
-    channels: dict[str, dict],
-    token: str,
+    channels:  dict[str, dict],
+    token:     str,
     client_id: str,
-    region: str,
-    days: int = EPG_DAYS,
+    region:    str,
+    days:      int = EPG_DAYS,
 ) -> str:
-    """Build XMLTV EPG content for *region* covering *days* days."""
-    ip = GEO_IPS.get(region, GEO_IPS["us"])
+    """Build XMLTV content for *region* covering *days* days."""
+    ip    = GEO_IPS.get(region, GEO_IPS["us"])
     today = datetime.now(timezone.utc)
     dates = [(today + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(days)]
 
-    # Collect channel XML fragments + programme blocks in parallel
-    channel_xml_parts: list[str] = []
-    programme_xml_parts: list[str] = []
-
-    # Build channel entries
+    # <channel> entries
+    channel_xml: list[str] = []
     for gk, ch in channels.items():
-        name  = escape(_sanitize(ch.get("name", gk)))
-        logo  = escape(ch.get("logo", ""))
-        cxml  = f'  <channel id="{gk}">\n'
-        cxml += f'    <display-name>{name}</display-name>\n'
+        name = escape(_sanitize(ch.get("name", gk)))
+        logo = escape(ch.get("logo", ""))
+        block = f'  <channel id="{gk}">\n    <display-name>{name}</display-name>\n'
         if logo:
-            cxml += f'    <icon src="{logo}" />\n'
-        cxml += '  </channel>\n'
-        channel_xml_parts.append(cxml)
+            block += f'    <icon src="{logo}" />\n'
+        block += "  </channel>\n"
+        channel_xml.append(block)
 
-    # Fetch programme data concurrently
-    tasks = [
-        (ch, date)
-        for ch in channels.values()
-        for date in dates
-    ]
+    # <programme> entries – fetched concurrently
+    tasks = [(ch, date) for ch in channels.values() for date in dates]
+    logger.info("  Fetching EPG: %d channels × %d days = %d requests …",
+                len(channels), days, len(tasks))
 
-    logger.info("Fetching EPG for %s – %d channel/day combos …", region, len(tasks))
-
+    programme_xml: list[str] = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = {
             pool.submit(_fetch_epg_for_channel, ch, date, token, client_id, ip): (ch, date)
@@ -492,18 +553,17 @@ def build_epg(
         for future in as_completed(futures):
             result = future.result()
             if result:
-                programme_xml_parts.append(result)
+                programme_xml.append(result)
 
-    xml_lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>\n',
-        '<!DOCTYPE tv SYSTEM "xmltv.dtd">\n',
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE tv SYSTEM "xmltv.dtd">\n'
         '<tv generator-info-name="plex-alt-fast-channels" '
-        'generator-info-url="https://github.com/BuddyChewChew/plex-alt-fast-channels">\n',
-        *channel_xml_parts,
-        *programme_xml_parts,
-        '</tv>\n',
-    ]
-    return "".join(xml_lines)
+        'generator-info-url="https://github.com/BuddyChewChew/plex-alt-fast-channels">\n'
+        + "".join(channel_xml)
+        + "\n".join(programme_xml) + "\n"
+        + "</tv>\n"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -511,101 +571,108 @@ def build_epg(
 # ---------------------------------------------------------------------------
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate Plex free live TV playlists")
-    parser.add_argument(
-        "--regions", nargs="+",
-        default=list(GEO_IPS.keys()),
-        help="Regions to generate (default: all)",
+    p = argparse.ArgumentParser(description="Generate Plex free live TV playlists")
+    p.add_argument(
+        "--regions", nargs="+", default=list(GEO_IPS.keys()),
+        help="Region codes to generate (default: all)",
     )
-    parser.add_argument(
+    p.add_argument(
+        "--refresh-channels", action="store_true",
+        help="Ignore channels.json cache and re-fetch from Plex API",
+    )
+    p.add_argument(
         "--no-epg", action="store_true",
-        help="Skip EPG generation",
+        help="Skip EPG / XMLTV generation",
     )
-    parser.add_argument(
+    p.add_argument(
         "--days", type=int, default=EPG_DAYS,
         help=f"Days of EPG to fetch (default: {EPG_DAYS})",
     )
-    parser.add_argument(
-        "--repo", default="https://raw.githubusercontent.com/BuddyChewChew/plex-alt-fast-channels/main",
-        help="Raw base URL of the repo (used in url-tvg links)",
+    p.add_argument(
+        "--repo", default=REPO_RAW_BASE,
+        help="Raw base URL of the repo (used in url-tvg= links)",
     )
-    return parser.parse_args()
-
-
-def generate_region(region: str, args) -> dict | None:
-    """Full pipeline for one region.  Returns channel dict or None."""
-    logger.info("=== Region: %s ===", region.upper())
-
-    token, client_id = get_anonymous_token(region)
-    if not token:
-        logger.error("Skipping %s – no token", region)
-        return None
-
-    channels = fetch_channels(token, client_id, region)
-    if not channels:
-        logger.warning("No channels found for %s", region)
-        return None
-
-    # M3U
-    m3u = build_m3u(channels, token, region, args.repo)
-    write_file(f"plex_{region}.m3u", m3u)
-
-    # EPG
-    if not args.no_epg:
-        xml = build_epg(channels, token, client_id, region, days=args.days)
-        write_file(f"plex_{region}.xml", xml)
-
-    return channels
+    return p.parse_args()
 
 
 def main():
     args = parse_args()
     cleanup_output_dir()
 
-    all_channels: dict[str, dict] = {}   # merged for plex_all.*
-    all_tokens: dict[str, tuple] = {}    # region → (token, client_id)
+    # ── 1. Get channel metadata (cache or API) ────────────────────────────
+    channels_by_region = get_channels_for_regions(
+        args.regions, force_refresh=args.refresh_channels
+    )
+
+    if not channels_by_region:
+        logger.error("No channel data – aborting.")
+        return
+
+    # ── 2. Per-region M3U + EPG ───────────────────────────────────────────
+    all_channels: dict[str, dict] = {}   # merged set for plex_all.*
 
     for region in args.regions:
-        result = generate_region(region, args)
-        if result:
-            for gk, ch in result.items():
-                if gk not in all_channels:
-                    all_channels[gk] = ch
-            # Keep the US token for the "all" playlist stream URLs
-            if region not in all_tokens:
-                token, client_id = get_anonymous_token(region)
-                if token:
-                    all_tokens[region] = (token, client_id)
+        channels = channels_by_region.get(region)
+        if not channels:
+            logger.warning("No channels for region=%s – skipping.", region)
+            continue
 
-    # Combined "all" files
+        logger.info("=== %s (%d channels) ===", region.upper(), len(channels))
+
+        # Fresh token for stream URLs + EPG (tokens expire in ~6 h)
+        token, client_id = get_anonymous_token(region)
+        if not token:
+            logger.error("No token for %s – skipping.", region)
+            continue
+
+        # M3U  (url-tvg= header points to repo XML)
+        m3u = build_m3u(channels, token, region, args.repo)
+        write_playlist(f"plex_{region}.m3u", m3u)
+
+        # EPG
+        if not args.no_epg:
+            xml = build_epg(channels, token, client_id, region, days=args.days)
+            write_playlist(f"plex_{region}.xml", xml)
+
+        # Accumulate for "all" files (first region wins for duplicate gridKeys)
+        for gk, ch in channels.items():
+            if gk not in all_channels:
+                all_channels[gk] = ch
+
+    # ── 3. Combined plex_all.* ────────────────────────────────────────────
     if all_channels:
-        logger.info("=== Building plex_all.* ===")
-        fallback_region = args.regions[0] if args.regions else "us"
-        all_token, all_client_id = all_tokens.get(
-            fallback_region,
-            get_anonymous_token(fallback_region),
-        )
+        logger.info("=== Building plex_all.* (%d channels) ===", len(all_channels))
+
+        # Use the first available region's token for the "all" stream URLs
+        fallback_region = next(iter(channels_by_region))
+        all_token, all_client_id = get_anonymous_token(fallback_region)
+
         if all_token:
             all_m3u = build_m3u(all_channels, all_token, "all", args.repo)
-            write_file("plex_all.m3u", all_m3u)
+            write_playlist("plex_all.m3u", all_m3u)
 
             if not args.no_epg:
-                # For the combined EPG just concatenate the per-region XMLs
-                combined_channels_xml: list[str] = []
-                combined_programmes_xml: list[str] = []
+                # Stitch together per-region XMLs already on disk
+                combined_channels_xml:    list[str] = []
+                combined_programmes_xml:  list[str] = []
+                seen_channel_ids:         set[str]  = set()
+
                 for region in args.regions:
                     fp = os.path.join(OUTPUT_DIR, f"plex_{region}.xml")
-                    if os.path.exists(fp):
-                        with open(fp, encoding="utf-8") as fh:
-                            content = fh.read()
-                        # Extract <channel> blocks
-                        combined_channels_xml.extend(
-                            re.findall(r"<channel\b.*?</channel>", content, re.DOTALL)
-                        )
-                        # Extract <programme> blocks
-                        combined_programmes_xml.extend(
-                            re.findall(r"<programme\b.*?</programme>", content, re.DOTALL)
-                        )
+                    if not os.path.exists(fp):
+                        continue
+                    with open(fp, encoding="utf-8") as fh:
+                        content = fh.read()
+                    for block in re.findall(r"<channel\b.*?</channel>", content, re.DOTALL):
+                        cid_match = re.search(r'id="([^"]+)"', block)
+                        if cid_match:
+                            cid = cid_match.group(1)
+                            if cid not in seen_channel_ids:
+                                seen_channel_ids.add(cid)
+                                combined_channels_xml.append(block)
+                    combined_programmes_xml.extend(
+                        re.findall(r"<programme\b.*?</programme>", content, re.DOTALL)
+                    )
 
                 all_xml = (
                     '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -616,9 +683,9 @@ def main():
                     + "\n".join(combined_programmes_xml) + "\n"
                     + "</tv>\n"
                 )
-                write_file("plex_all.xml", all_xml)
+                write_playlist("plex_all.xml", all_xml)
 
-    logger.info("Done. Files written to ./%s/", OUTPUT_DIR)
+    logger.info("Done – files in ./%s/", OUTPUT_DIR)
 
 
 if __name__ == "__main__":
