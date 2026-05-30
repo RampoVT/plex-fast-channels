@@ -1,17 +1,25 @@
 name: Generate Plex Playlists
 
 on:
-  # Run automatically every 6 hours
   schedule:
+    # Every 6 hours – refreshes tokens + EPG; channels.json reused unless stale
     - cron: "0 */6 * * *"
 
-  # Allow manual trigger from the Actions tab
+  # Weekly channel list refresh – forces re-fetch of channels.json
+  # (runs every Monday at 03:00 UTC)
+  schedule:
+    - cron: "0 3 * * 1"
+
   workflow_dispatch:
     inputs:
       regions:
-        description: "Space-separated region codes to generate (leave blank for all)"
+        description: "Space-separated region codes (blank = all)"
         required: false
         default: ""
+      refresh_channels:
+        description: "Force re-fetch channels.json? (true / false)"
+        required: false
+        default: "false"
       no_epg:
         description: "Skip EPG generation? (true / false)"
         required: false
@@ -21,7 +29,6 @@ on:
         required: false
         default: "2"
 
-  # Also regenerate when the script itself changes
   push:
     paths:
       - "generate.py"
@@ -33,76 +40,79 @@ jobs:
     timeout-minutes: 60
 
     permissions:
-      contents: write   # needed to push the generated playlists back
+      contents: write
 
     steps:
-      # -----------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # -----------------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      # -----------------------------------------------------------------------
       - name: Install dependencies
-        run: pip install requests urllib3
+        run: pip install -r requirements.txt
 
-      # -----------------------------------------------------------------------
-      - name: Build region / flag arguments
-        id: args
+      - name: Build command
+        id: cmd
         run: |
-          REGIONS="${{ github.event.inputs.regions }}"
-          NO_EPG="${{ github.event.inputs.no_epg }}"
-          DAYS="${{ github.event.inputs.days }}"
-
           CMD="python generate.py"
 
+          REGIONS="${{ github.event.inputs.regions }}"
           if [ -n "$REGIONS" ]; then
             CMD="$CMD --regions $REGIONS"
           fi
 
+          REFRESH="${{ github.event.inputs.refresh_channels }}"
+          # Also force a refresh on the weekly Monday cron
+          if [ "$REFRESH" = "true" ] || \
+             ( [ "${{ github.event_name }}" = "schedule" ] && \
+               [ "$(date -u +%u)" = "1" ] ); then
+            CMD="$CMD --refresh-channels"
+          fi
+
+          NO_EPG="${{ github.event.inputs.no_epg }}"
           if [ "$NO_EPG" = "true" ]; then
             CMD="$CMD --no-epg"
           fi
 
+          DAYS="${{ github.event.inputs.days }}"
           if [ -n "$DAYS" ] && [ "$DAYS" != "2" ]; then
             CMD="$CMD --days $DAYS"
           fi
 
           echo "cmd=$CMD" >> "$GITHUB_OUTPUT"
+          echo "Running: $CMD"
 
-      # -----------------------------------------------------------------------
       - name: Generate playlists & EPG
-        run: ${{ steps.args.outputs.cmd }}
+        run: ${{ steps.cmd.outputs.cmd }}
 
-      # -----------------------------------------------------------------------
-      - name: Commit & push generated files
+      - name: Commit & push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add playlists/
+          # Stage both the playlists folder AND channels.json (if it changed)
+          git add playlists/ channels.json 2>/dev/null || git add playlists/
 
-          # Only commit if something actually changed
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "Nothing changed – skipping commit."
           else
             TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
             git commit -m "chore: regenerate playlists @ ${TIMESTAMP} [skip ci]"
             git push
           fi
 
-      # -----------------------------------------------------------------------
-      - name: Upload playlists as artifact (always, for debugging)
+      - name: Upload artifact (debug)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playlists-${{ github.run_number }}
-          path: playlists/
+          path: |
+            playlists/
+            channels.json
           retention-days: 3
