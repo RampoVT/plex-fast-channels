@@ -1,4 +1,4 @@
-# ⚠️ SOME REGIONS MY BE GEO BLOCKED 
+# 🚫 SOME REGIONS MY BE GEO BLOCKED 
 
 # plex-alt-fast-channels
 
