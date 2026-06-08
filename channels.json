@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-08T15:24:19.076632+00:00",
+  "generated": "2026-06-08T20:00:15.604090+00:00",
   "channels": {
     "us": {
       "66635fc0ca7b22f4c3a2d743": {
@@ -28313,19 +28313,6 @@
         ],
         "region": "mx"
       },
-      "66f6b947515e742745f5ca34": {
-        "id": "608049aefa2b8ae93c2c3a63-66f6b947515e742745f5ca34",
-        "slug": "21-jump-street-2",
-        "gridKey": "66f6b947515e742745f5ca34",
-        "name": "21 Jump Street",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/a93dc428-87b4-49ce-834c-94bcad531802/21JS_Logo_Dark.png",
-        "callSign": "",
-        "key": "/library/parts/608049aefa2b8ae93c2c3a63-66f6b947515e742745f5ca34.m3u8",
-        "genres": [
-          "Classics"
-        ],
-        "region": "mx"
-      },
       "639ba57d3f4612cc150a5723": {
         "id": "608049aefa2b8ae93c2c3a63-639ba57d3f4612cc150a5723",
         "slug": "pitufo-tv",
@@ -28334,6 +28321,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/352d158b-9349-41a8-a273-af1eea090ce6/pitufotv_logo_dark_-_Jordan_Warkol.png",
         "callSign": "",
         "key": "/library/parts/608049aefa2b8ae93c2c3a63-639ba57d3f4612cc150a5723.m3u8",
+        "genres": [
+          "Classics"
+        ],
+        "region": "mx"
+      },
+      "66f6b947515e742745f5ca34": {
+        "id": "608049aefa2b8ae93c2c3a63-66f6b947515e742745f5ca34",
+        "slug": "21-jump-street-2",
+        "gridKey": "66f6b947515e742745f5ca34",
+        "name": "21 Jump Street",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/a93dc428-87b4-49ce-834c-94bcad531802/21JS_Logo_Dark.png",
+        "callSign": "",
+        "key": "/library/parts/608049aefa2b8ae93c2c3a63-66f6b947515e742745f5ca34.m3u8",
         "genres": [
           "Classics"
         ],
