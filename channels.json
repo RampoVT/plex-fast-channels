@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-08T20:00:15.604090+00:00",
+  "generated": "2026-06-15T02:31:24.113615+00:00",
   "channels": {
     "us": {
       "66635fc0ca7b22f4c3a2d743": {
@@ -4931,10 +4931,10 @@
       },
       "64275805efc65caa7e9514d6": {
         "id": "6a1610bebdf296985fd95603-64275805efc65caa7e9514d6",
-        "slug": "real-disaster-channel",
+        "slug": "mayday-air-disaster-2",
         "gridKey": "64275805efc65caa7e9514d6",
-        "name": "Real Disaster Channel",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/fb16500b-28af-4fc6-8c77-b76dd98b8b56/Logo_Real_Disaster_1500_x_1000_dark_-_Matt_Mattysiak.png",
+        "name": "Mayday: Air Disaster",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/56055a21-e529-4b54-8f9e-42cf8fc41bc5/MaydayAirDisaster_Logo_FullColour_1500x1000_-_Patrick_LeeRED.png",
         "callSign": "",
         "key": "/library/parts/6a1610bebdf296985fd95603-64275805efc65caa7e9514d6.m3u8",
         "genres": [
@@ -9104,6 +9104,19 @@
         ],
         "region": "ca"
       },
+      "6a2073286c6354dc02aa8c97": {
+        "id": "647f8d22a2fc3fadb4721685-6a2073286c6354dc02aa8c97",
+        "slug": "stories-by-amc-3",
+        "gridKey": "6a2073286c6354dc02aa8c97",
+        "name": "Stories by AMC",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/9fe25501-21e0-41be-97cb-81ce4fd17afc/Stories_ByAMC05fe66edb398fa8a4ee7debc208cf271Color.png",
+        "callSign": "",
+        "key": "/library/parts/647f8d22a2fc3fadb4721685-6a2073286c6354dc02aa8c97.m3u8",
+        "genres": [
+          "Bingeworthy"
+        ],
+        "region": "ca"
+      },
       "6874409e46d1d8d8348e6b7e": {
         "id": "647f8d22a2fc3fadb4721685-6874409e46d1d8d8348e6b7e",
         "slug": "teen-wolf-by-mgm",
@@ -9112,6 +9125,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/0f4395c4-94b6-48e0-8c24-2a61850211d2/TeenWolf_logo_Attribution_-_Carl_HoffelderRdx.png",
         "callSign": "",
         "key": "/library/parts/647f8d22a2fc3fadb4721685-6874409e46d1d8d8348e6b7e.m3u8",
+        "genres": [
+          "Bingeworthy"
+        ],
+        "region": "ca"
+      },
+      "6a206bac6c6354dc02aa8c95": {
+        "id": "647f8d22a2fc3fadb4721685-6a206bac6c6354dc02aa8c95",
+        "slug": "the-walking-dead-universe-3",
+        "gridKey": "6a206bac6c6354dc02aa8c95",
+        "name": "The Walking Dead Universe",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/206987e1-6423-471b-b314-b0e8d22284f5/AMCN_TWDU_Plex_logo_dark_v01.png",
+        "callSign": "",
+        "key": "/library/parts/647f8d22a2fc3fadb4721685-6a206bac6c6354dc02aa8c95.m3u8",
         "genres": [
           "Bingeworthy"
         ],
@@ -11041,6 +11067,19 @@
         ],
         "region": "ca"
       },
+      "6a2063fe51e93d77d9a65e44": {
+        "id": "647f8d22a2fc3fadb4721685-6a2063fe51e93d77d9a65e44",
+        "slug": "all-reality-we-tv-2",
+        "gridKey": "6a2063fe51e93d77d9a65e44",
+        "name": "All Reality We TV",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/001158af-973c-41ad-9c40-fa3aed48298d/AR_Rebrand_TT_Stacked_RDXColor.png",
+        "callSign": "",
+        "key": "/library/parts/647f8d22a2fc3fadb4721685-6a2063fe51e93d77d9a65e44.m3u8",
+        "genres": [
+          "Reality"
+        ],
+        "region": "ca"
+      },
       "672917e07f55143b23b66c4b": {
         "id": "647f8d22a2fc3fadb4721685-672917e07f55143b23b66c4b",
         "slug": "dance-moms",
@@ -11938,6 +11977,19 @@
         ],
         "region": "ca"
       },
+      "6a206a3e352a41420ef767a7": {
+        "id": "647f8d22a2fc3fadb4721685-6a206a3e352a41420ef767a7",
+        "slug": "portlandia-2",
+        "gridKey": "6a206a3e352a41420ef767a7",
+        "name": "Portlandia",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/949f96f9-49b7-4ca8-b4a2-9f4f9aa6457d/AMCN-PortlandiaIFC_Plex_logo_dark_v01_white_color.png",
+        "callSign": "",
+        "key": "/library/parts/647f8d22a2fc3fadb4721685-6a206a3e352a41420ef767a7.m3u8",
+        "genres": [
+          "Comedy"
+        ],
+        "region": "ca"
+      },
       "6348b2cb1159f6a5ce819b89": {
         "id": "647f8d22a2fc3fadb4721685-6348b2cb1159f6a5ce819b89",
         "slug": "trailer-park-boys-the-swearnet-show",
@@ -12705,19 +12757,6 @@
         ],
         "region": "ca"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "647f8d22a2fc3fadb4721685-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
-        "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
-        "callSign": "",
-        "key": "/library/parts/647f8d22a2fc3fadb4721685-63584a0cf8e2be1350f802a4.m3u8",
-        "genres": [
-          "Explore"
-        ],
-        "region": "ca"
-      },
       "69f52ffb6e5708fb20d36d9c": {
         "id": "647f8d22a2fc3fadb4721685-69f52ffb6e5708fb20d36d9c",
         "slug": "the-prof-g-channel",
@@ -13012,6 +13051,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/9cb4b15c-8244-4499-ae2c-9a92d4cdff6d/13895_SHS_Plex_Logos_Holidays_1500x1000_Dark-Background.png",
         "callSign": "",
         "key": "/library/parts/647f8d22a2fc3fadb4721685-654eb862dde2222e8ba551f1.m3u8",
+        "genres": [
+          "Explore"
+        ],
+        "region": "ca"
+      },
+      "6a1609442476ab8600b1841c": {
+        "id": "647f8d22a2fc3fadb4721685-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
+        "name": "Real Wild",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "callSign": "",
+        "key": "/library/parts/647f8d22a2fc3fadb4721685-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -17920,19 +17972,6 @@
         ],
         "region": "gb"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "64305451fc3be5947773c339-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
-        "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
-        "callSign": "",
-        "key": "/library/parts/64305451fc3be5947773c339-63584a0cf8e2be1350f802a4.m3u8",
-        "genres": [
-          "Explore"
-        ],
-        "region": "gb"
-      },
       "62ab5aabbb869dd0df6a3487": {
         "id": "64305451fc3be5947773c339-62ab5aabbb869dd0df6a3487",
         "slug": "ted",
@@ -18175,6 +18214,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/9cb4b15c-8244-4499-ae2c-9a92d4cdff6d/13895_SHS_Plex_Logos_Holidays_1500x1000_Dark-Background.png",
         "callSign": "",
         "key": "/library/parts/64305451fc3be5947773c339-654eb862dde2222e8ba551f1.m3u8",
+        "genres": [
+          "Explore"
+        ],
+        "region": "gb"
+      },
+      "6a1609442476ab8600b1841c": {
+        "id": "64305451fc3be5947773c339-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
+        "name": "Real Wild",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "callSign": "",
+        "key": "/library/parts/64305451fc3be5947773c339-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -20912,6 +20964,19 @@
         ],
         "region": "au"
       },
+      "6a160ac72476ab8600b1841e": {
+        "id": "697140a85d851f5e69414688-6a160ac72476ab8600b1841e",
+        "slug": "bring-it",
+        "gridKey": "6a160ac72476ab8600b1841e",
+        "name": "Bring It!",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/e20d8d73-7b59-4175-84de-69c6337551ea/Bring_It_channel_logo_4c_1500x1000PNKRDX.png",
+        "callSign": "",
+        "key": "/library/parts/697140a85d851f5e69414688-6a160ac72476ab8600b1841e.m3u8",
+        "genres": [
+          "Reality"
+        ],
+        "region": "au"
+      },
       "690cd1fb750b5c46ff424c8e": {
         "id": "697140a85d851f5e69414688-690cd1fb750b5c46ff424c8e",
         "slug": "mayday-air-disaster",
@@ -21562,19 +21627,6 @@
         ],
         "region": "au"
       },
-      "636d5aa3dc2c550b145ed422": {
-        "id": "697140a85d851f5e69414688-636d5aa3dc2c550b145ed422",
-        "slug": "degrassi",
-        "gridKey": "636d5aa3dc2c550b145ed422",
-        "name": "Degrassi",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/a426c4a0-14ce-4a28-9203-af696a07663e/Degrassi_TNG_White_Strokerdx.png",
-        "callSign": "",
-        "key": "/library/parts/697140a85d851f5e69414688-636d5aa3dc2c550b145ed422.m3u8",
-        "genres": [
-          "Daytime TV & Games"
-        ],
-        "region": "au"
-      },
       "651600fb2ff655e77635c62a": {
         "id": "697140a85d851f5e69414688-651600fb2ff655e77635c62a",
         "slug": "fear-factor",
@@ -21952,19 +22004,6 @@
         ],
         "region": "au"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "697140a85d851f5e69414688-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
-        "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
-        "callSign": "",
-        "key": "/library/parts/697140a85d851f5e69414688-63584a0cf8e2be1350f802a4.m3u8",
-        "genres": [
-          "Explore"
-        ],
-        "region": "au"
-      },
       "6a10ad97b05301ef36a6a8e6": {
         "id": "697140a85d851f5e69414688-6a10ad97b05301ef36a6a8e6",
         "slug": "i-shouldnt-be-alive",
@@ -22142,6 +22181,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/883ee6c5-8ed3-41ed-b45f-b39af995fe37/TPGC-Logos_97_.ai_-_Steve_Shannon_WHT_TEXTRDX2.png",
         "callSign": "",
         "key": "/library/parts/697140a85d851f5e69414688-69f52ffb6e5708fb20d36d9c.m3u8",
+        "genres": [
+          "Explore"
+        ],
+        "region": "au"
+      },
+      "6a1609442476ab8600b1841c": {
+        "id": "697140a85d851f5e69414688-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
+        "name": "Real Wild",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "callSign": "",
+        "key": "/library/parts/697140a85d851f5e69414688-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -24580,6 +24632,19 @@
         ],
         "region": "nz"
       },
+      "6a160ac72476ab8600b1841e": {
+        "id": "5e20b730f2f8d5003d739db7-6a160ac72476ab8600b1841e",
+        "slug": "bring-it",
+        "gridKey": "6a160ac72476ab8600b1841e",
+        "name": "Bring It!",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/e20d8d73-7b59-4175-84de-69c6337551ea/Bring_It_channel_logo_4c_1500x1000PNKRDX.png",
+        "callSign": "",
+        "key": "/library/parts/5e20b730f2f8d5003d739db7-6a160ac72476ab8600b1841e.m3u8",
+        "genres": [
+          "Reality"
+        ],
+        "region": "nz"
+      },
       "690cd1fb750b5c46ff424c8e": {
         "id": "5e20b730f2f8d5003d739db7-690cd1fb750b5c46ff424c8e",
         "slug": "mayday-air-disaster",
@@ -25282,19 +25347,6 @@
         ],
         "region": "nz"
       },
-      "636d5aa3dc2c550b145ed422": {
-        "id": "5e20b730f2f8d5003d739db7-636d5aa3dc2c550b145ed422",
-        "slug": "degrassi",
-        "gridKey": "636d5aa3dc2c550b145ed422",
-        "name": "Degrassi",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/a426c4a0-14ce-4a28-9203-af696a07663e/Degrassi_TNG_White_Strokerdx.png",
-        "callSign": "",
-        "key": "/library/parts/5e20b730f2f8d5003d739db7-636d5aa3dc2c550b145ed422.m3u8",
-        "genres": [
-          "Daytime TV & Games"
-        ],
-        "region": "nz"
-      },
       "60db63d29ec966002c9ea6f0": {
         "id": "5e20b730f2f8d5003d739db7-60db63d29ec966002c9ea6f0",
         "slug": "made-in-hollywood-2",
@@ -25581,14 +25633,14 @@
         ],
         "region": "nz"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
+      "6a1609442476ab8600b1841c": {
+        "id": "5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
         "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
         "callSign": "",
-        "key": "/library/parts/5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4.m3u8",
+        "key": "/library/parts/5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -45522,19 +45574,6 @@
         ],
         "region": "in"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "698f7631338300003d436270-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
-        "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
-        "callSign": "",
-        "key": "/library/parts/698f7631338300003d436270-63584a0cf8e2be1350f802a4.m3u8",
-        "genres": [
-          "Explore"
-        ],
-        "region": "in"
-      },
       "5f170d61b898490041b49369": {
         "id": "698f7631338300003d436270-5f170d61b898490041b49369",
         "slug": "the-pet-collective-2",
@@ -45634,6 +45673,19 @@
         "logo": "https://provider-static.plex.tv/epg/cms/production/883ee6c5-8ed3-41ed-b45f-b39af995fe37/TPGC-Logos_97_.ai_-_Steve_Shannon_WHT_TEXTRDX2.png",
         "callSign": "",
         "key": "/library/parts/698f7631338300003d436270-69f52ffb6e5708fb20d36d9c.m3u8",
+        "genres": [
+          "Explore"
+        ],
+        "region": "in"
+      },
+      "6a1609442476ab8600b1841c": {
+        "id": "698f7631338300003d436270-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
+        "name": "Real Wild",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "callSign": "",
+        "key": "/library/parts/698f7631338300003d436270-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -53315,14 +53367,14 @@
         ],
         "region": "se"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
+      "6a1609442476ab8600b1841c": {
+        "id": "5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
         "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
         "callSign": "",
-        "key": "/library/parts/5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4.m3u8",
+        "key": "/library/parts/5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
@@ -56320,14 +56372,14 @@
         ],
         "region": "nl"
       },
-      "63584a0cf8e2be1350f802a4": {
-        "id": "5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4",
-        "slug": "real-wild",
-        "gridKey": "63584a0cf8e2be1350f802a4",
+      "6a1609442476ab8600b1841c": {
+        "id": "5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c",
+        "slug": "real-wild-2",
+        "gridKey": "6a1609442476ab8600b1841c",
         "name": "Real Wild",
-        "logo": "https://provider-static.plex.tv/epg/cms/production/09e8c6b6-368e-4275-b974-fe5e1921f64d/RealWild_Logo_White_-_Simon_Tuquabo.png",
+        "logo": "https://provider-static.plex.tv/epg/cms/production/482fe1d5-fb01-416a-857e-ffbf8b6c8cc8/RealWild_Logo_White_-_Simon_Tuquabo.png",
         "callSign": "",
-        "key": "/library/parts/5e20b730f2f8d5003d739db7-63584a0cf8e2be1350f802a4.m3u8",
+        "key": "/library/parts/5e20b730f2f8d5003d739db7-6a1609442476ab8600b1841c.m3u8",
         "genres": [
           "Explore"
         ],
